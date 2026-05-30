@@ -73,7 +73,7 @@ export default function LeftSidebar({ activeTab, onTabChange, layers, onLayerTog
             <Shield className="w-4 h-4 text-white" />
           </div>
           <div>
-            <div className="text-xs font-bold text-white tracking-wide">BNPB-BMKG</div>
+            <div className="text-xs font-bold text-white tracking-wide">InaFlews</div>
             <div className="text-[10px] text-slate-400 tracking-widest uppercase">EWS Command</div>
           </div>
         </div>
