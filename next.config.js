@@ -16,6 +16,8 @@ const nextConfig = {
     }
     return config;
   },
+  output: 'export',
+  basePath: '/InaFlews',
 };
 
 module.exports = nextConfig;
