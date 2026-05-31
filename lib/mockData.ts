@@ -2,6 +2,8 @@ export interface HexFeatureProperties {
   hexId: string;
   regionName: string;
   province: string;
+  lat: number;
+  lng: number;
   soilSaturation: number;
   currentRainfall: number;
   slopeAngle: number;
@@ -39,11 +41,11 @@ function hex(
   lat: number,
   lng: number,
   size: number,
-  props: Omit<HexFeatureProperties, 'hexId'>
+  props: Omit<HexFeatureProperties, 'hexId' | 'lat' | 'lng'>
 ) {
   return {
     type: 'Feature' as const,
-    properties: { hexId: id, ...props },
+    properties: { hexId: id, lat, lng, ...props },
     geometry: {
       type: 'Polygon' as const,
       coordinates: [makeHex(lat, lng, size)],

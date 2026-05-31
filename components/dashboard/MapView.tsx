@@ -14,10 +14,10 @@ function getRiskColor(risk: number): string {
   return '#22c55e';
 }
 
-function getRiskOpacity(risk: number): number {
-  if (risk > 0.7) return 0.75;
-  if (risk > 0.4) return 0.45;
-  return 0.25;
+function getRiskFillColor(risk: number): string {
+  if (risk > 0.7) return 'rgba(239, 68, 68, 0.55)';
+  if (risk > 0.4) return 'rgba(245, 158, 11, 0.35)';
+  return 'rgba(34, 197, 94, 0.2)';
 }
 
 // Inject Leaflet CSS if not already loaded
@@ -32,10 +32,26 @@ function ensureLeafletCSS() {
   document.head.appendChild(link);
 }
 
+// Create a hexagon-shaped SVG path for use as a marker icon
+function createHexagonIcon(color: string, fillColor: string, isCritical: boolean) {
+  const size = isCritical ? 28 : 22;
+  const svg = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 100 100">
+      <polygon
+        points="50,3 93,25 93,75 50,97 7,75 7,25"
+        fill="${fillColor}"
+        stroke="${color}"
+        stroke-width="${isCritical ? 3 : 2}"
+      />
+    </svg>
+  `;
+  return `data:image/svg+xml,${encodeURIComponent(svg)}`;
+}
+
 export default function MapView({ onHexClick, selectedHexId }: MapViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<any>(null);
-  const hexLayersRef = useRef<Map<string, any>>(new Map());
+  const markersRef = useRef<Map<string, any>>(new Map());
   const onHexClickRef = useRef(onHexClick);
   onHexClickRef.current = onHexClick;
 
@@ -47,9 +63,7 @@ export default function MapView({ onHexClick, selectedHexId }: MapViewProps) {
     let intervals: any[] = [];
 
     const init = async () => {
-      // Ensure CSS is loaded before initializing the map
       ensureLeafletCSS();
-
       L = await import('leaflet');
 
       if (!containerRef.current) return;
@@ -61,7 +75,6 @@ export default function MapView({ onHexClick, selectedHexId }: MapViewProps) {
         attributionControl: true,
       });
 
-      // CartoDB dark tiles (verified working URL)
       L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
         subdomains: 'abcd',
@@ -70,28 +83,45 @@ export default function MapView({ onHexClick, selectedHexId }: MapViewProps) {
 
       L.control.zoom({ position: 'topright' }).addTo(map);
 
-      // Add GeoJSON hexagons
+      // Add hexagon markers for each feature
       (mockGeoJSON.features as any[]).forEach((feature) => {
         const props = feature.properties as HexFeatureProperties;
-        const color = getRiskColor(props.overallRiskScore);
-        const opacity = getRiskOpacity(props.overallRiskScore);
 
-        const layer = L.geoJSON(feature, {
-          style: {
-            fillColor: color,
-            fillOpacity: opacity,
-            color: color,
-            weight: props.overallRiskScore > 0.7 ? 2 : 1,
-            opacity: 0.8,
-          },
+        const color = getRiskColor(props.overallRiskScore);
+        const fillColor = getRiskFillColor(props.overallRiskScore);
+        const isCritical = props.overallRiskScore > 0.7;
+
+        const icon = L.divIcon({
+          className: 'hex-marker',
+          html: `
+            <div style="
+              width: ${isCritical ? 28 : 22}px;
+              height: ${isCritical ? 28 : 22}px;
+              position: relative;
+            ">
+              <svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" viewBox="0 0 100 100" style="overflow: visible;">
+                <polygon
+                  points="50,3 93,25 93,75 50,97 7,75 7,25"
+                  fill="${fillColor}"
+                  stroke="${color}"
+                  stroke-width="${isCritical ? 3 : 2}"
+                  style="${isCritical ? 'filter: drop-shadow(0 0 4px rgba(239, 68, 68, 0.6));' : ''}"
+                />
+              </svg>
+            </div>
+          `,
+          iconSize: [isCritical ? 28 : 22, isCritical ? 28 : 22],
+          iconAnchor: [isCritical ? 14 : 11, isCritical ? 14 : 11],
         });
 
-        layer.on('click', () => {
+        const marker = L.marker([props.lat, props.lng], { icon }).addTo(map);
+
+        marker.on('click', () => {
           onHexClickRef.current(props);
         });
 
-        layer.on('mouseover', (e: any) => {
-          e.target.setStyle({ weight: 3, opacity: 1 });
+        marker.on('mouseover', function(this: any) {
+          this.setStyle?.({ weight: 3 });
           const tooltipContent = `
             <div style="background:#0f172a;border:1px solid #334155;border-radius:6px;padding:8px 12px;font-family:monospace;min-width:180px">
               <div style="color:#94a3b8;font-size:10px;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">Hexagon ${props.hexId}</div>
@@ -113,47 +143,34 @@ export default function MapView({ onHexClick, selectedHexId }: MapViewProps) {
               </div>
             </div>
           `;
-          e.target.bindTooltip(tooltipContent, {
+          marker.bindTooltip(tooltipContent, {
             sticky: true,
             opacity: 1,
             className: 'hex-tooltip',
           }).openTooltip();
         });
 
-        layer.on('mouseout', (e: any) => {
-          e.target.setStyle({
-            weight: props.overallRiskScore > 0.7 ? 2 : 1,
-            opacity: 0.8,
-          });
-          e.target.closeTooltip();
-        });
-
-        layer.addTo(map);
-        hexLayersRef.current.set(props.hexId, layer);
+        markersRef.current.set(props.hexId, marker);
 
         // Pulse animation for critical hexagons
-        if (props.overallRiskScore > 0.7) {
-          const subLayer = layer.getLayers()[0] as any;
-          if (subLayer && subLayer._path) {
-            subLayer._path.style.transition = 'fill-opacity 1.2s ease-in-out';
-            let bright = true;
-            const interval = setInterval(() => {
-              if (!subLayer._path) { clearInterval(interval); return; }
-              subLayer._path.style.fillOpacity = bright ? String(opacity * 0.5) : String(opacity);
-              bright = !bright;
-            }, 1200);
-            intervals.push(interval);
-          }
+        if (isCritical) {
+          let bright = true;
+          const interval = setInterval(() => {
+            const el = (marker as any)._icon;
+            if (!el) { clearInterval(interval); return; }
+            const svg = el.querySelector('polygon');
+            if (svg) {
+              svg.style.fillOpacity = bright ? '0.35' : '0.55';
+            }
+            bright = !bright;
+          }, 1200);
+          intervals.push(interval);
         }
       });
 
-      // Force resize after mount to ensure tiles render
-      setTimeout(() => {
-        map.invalidateSize();
-      }, 200);
-      setTimeout(() => {
-        map.invalidateSize();
-      }, 500);
+      // Force resize after mount
+      setTimeout(() => map.invalidateSize(), 200);
+      setTimeout(() => map.invalidateSize(), 500);
 
       mapRef.current = map;
     };
@@ -166,21 +183,23 @@ export default function MapView({ onHexClick, selectedHexId }: MapViewProps) {
         mapRef.current.remove();
         mapRef.current = null;
       }
-      hexLayersRef.current.clear();
+      markersRef.current.clear();
     };
   }, []);
 
-  // Highlight selected hex
+  // Update marker styles when selection changes
   useEffect(() => {
-    hexLayersRef.current.forEach((layer, hexId) => {
+    markersRef.current.forEach((marker, hexId) => {
+      const el = (marker as any)._icon;
+      if (!el) return;
+      const polygon = el.querySelector('polygon');
+      if (!polygon) return;
+
       const isSelected = hexId === selectedHexId;
-      const subLayer = layer.getLayers?.()?.[0] as any;
-      if (subLayer?._path) {
-        subLayer._path.style.strokeWidth = isSelected ? '3px' : '';
-        subLayer._path.style.filter = isSelected
-          ? 'drop-shadow(0 0 6px rgba(239, 68, 68, 0.8))'
-          : '';
-      }
+      polygon.style.strokeWidth = isSelected ? '4' : '2';
+      polygon.style.filter = isSelected
+        ? 'drop-shadow(0 0 8px rgba(239, 68, 68, 0.9))'
+        : '';
     });
   }, [selectedHexId]);
 

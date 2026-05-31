@@ -61,6 +61,17 @@
   font-family: inherit;
 }
 
+/* Hide default white background on Leaflet div icons */
+.hex-marker {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+.leaflet-marker-icon {
+  background: transparent !important;
+  border: none !important;
+}
+
 /* Leaflet tooltip overrides */
 .hex-tooltip .leaflet-tooltip {
   background: transparent !important;

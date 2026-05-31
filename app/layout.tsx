@@ -5,7 +5,7 @@ import { Inter } from 'next/font/google';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'InaFlews | Disaster Prediction Dashboard',
+  title: 'BNPB-BMKG Early Warning System | Disaster Prediction Dashboard',
   description: 'Indonesia Disaster Early Warning and Predictive Analytics Dashboard',
 };
 
