@@ -1,5 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  output: 'export',
+  basePath: '/InaFlews',
   eslint: {
     ignoreDuringBuilds: true,
   },
@@ -12,7 +14,7 @@ const nextConfig = {
         fs: false,
         net: false,
         tls: false,
-      };
+      };  
     }
     return config;
   },
