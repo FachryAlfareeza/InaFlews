@@ -245,7 +245,7 @@ export default function LeftSidebar({ activeTab, onTabChange, layers, onLayerTog
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-1.5">
             <CheckCircle2 className="w-3 h-3 text-green-400" />
-            <span className="text-[10px] text-green-400 font-medium">All Systems Nominal</span>
+            <span className="text-[10px] text-green-400 font-medium">All Systems Normal</span>
           </div>
           <div className="flex items-center gap-1">
             <span className="relative flex h-1.5 w-1.5">
