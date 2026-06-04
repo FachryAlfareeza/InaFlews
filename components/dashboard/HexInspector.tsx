@@ -13,11 +13,14 @@ import {
   Area,
   AreaChart,
 } from 'recharts';
-import { TriangleAlert as AlertTriangle, Droplets, CloudRain, Mountain, Users, ChevronRight, X, TrendingUp, Clock, MapPin, Hash } from 'lucide-react';
+import { TriangleAlert as AlertTriangle, Droplets, CloudRain, Mountain, Users, ChevronRight, X, TrendingUp, Clock, MapPin, Hash, ChevronLeft, ChevronRight as ChevronRightIcon, PanelRightOpen } from 'lucide-react';
 
 interface HexInspectorProps {
   selected: HexFeatureProperties | null;
   onClose: () => void;
+  isMobile: boolean;
+  isOpen: boolean;
+  onToggle: () => void;
 }
 
 function MetricCard({
@@ -84,10 +87,47 @@ function getRiskLabel(score: number) {
   return { label: 'LOW', color: 'text-green-400', bg: 'bg-green-900/30 border-green-700/50' };
 }
 
-export default function HexInspector({ selected, onClose }: HexInspectorProps) {
+export default function HexInspector({ selected, onClose, isMobile, isOpen, onToggle }: HexInspectorProps) {
+  // Mobile: bottom drawer overlay
+  if (isMobile) {
+    if (!selected) return null;
+
+    return (
+      <div className="fixed inset-0 z-50 flex items-end justify-center" onClick={onClose}>
+        <div className="absolute inset-0 bg-black/40" />
+        <div
+          className="relative w-full bg-[#060c1a] border-t border-slate-700/40 rounded-t-2xl max-h-[75vh] flex flex-col overflow-hidden"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Drag handle */}
+          <div className="flex justify-center py-2 flex-shrink-0">
+            <div className="w-8 h-1 rounded-full bg-slate-600" />
+          </div>
+          <InspectorContent selected={selected} onClose={onClose} />
+        </div>
+      </div>
+    );
+  }
+
+  // Desktop: collapsible side panel
+  if (!isOpen) {
+    return (
+      <div className="w-10 flex-shrink-0 bg-[#060c1a] border-l border-slate-700/40 flex flex-col items-center pt-3 hidden md:flex">
+        <button
+          onClick={onToggle}
+          className="w-7 h-7 flex items-center justify-center text-slate-500 hover:text-slate-200 hover:bg-slate-700/50 rounded transition-colors"
+          title="Open Inspector"
+        >
+          <ChevronLeft className="w-4 h-4" />
+        </button>
+      </div>
+    );
+  }
+
+  // Desktop: expanded side panel
   if (!selected) {
     return (
-      <div className="w-80 flex-shrink-0 bg-[#060c1a] border-l border-slate-700/40 flex flex-col items-center justify-center p-6">
+      <div className="w-80 flex-shrink-0 bg-[#060c1a] border-l border-slate-700/40 flex-col items-center justify-center p-6 hidden md:flex">
         <div className="w-12 h-12 rounded-full bg-slate-800/60 flex items-center justify-center mb-4">
           <MapPin className="w-5 h-5 text-slate-600" />
         </div>
@@ -102,6 +142,14 @@ export default function HexInspector({ selected, onClose }: HexInspectorProps) {
     );
   }
 
+  return (
+    <div className="w-80 flex-shrink-0 bg-[#060c1a] border-l border-slate-700/40 flex flex-col overflow-hidden hidden md:flex">
+      <InspectorContent selected={selected} onClose={onClose} />
+    </div>
+  );
+}
+
+function InspectorContent({ selected, onClose }: { selected: HexFeatureProperties; onClose: () => void }) {
   const forecastData = generateForecastData(selected.overallRiskScore);
   const riskInfo = getRiskLabel(selected.overallRiskScore);
   const isCritical = selected.overallRiskScore > 0.7;
@@ -109,7 +157,7 @@ export default function HexInspector({ selected, onClose }: HexInspectorProps) {
   const peakHour = forecastData.reduce((a, b) => (a.risk > b.risk ? a : b)).hour;
 
   return (
-    <div className="w-80 flex-shrink-0 bg-[#060c1a] border-l border-slate-700/40 flex flex-col overflow-hidden">
+    <>
       {/* Header */}
       <div className="px-4 py-3 border-b border-slate-700/40 flex items-start justify-between flex-shrink-0">
         <div>
@@ -137,7 +185,7 @@ export default function HexInspector({ selected, onClose }: HexInspectorProps) {
       </div>
 
       {/* Scrollable content */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto scrollbar-thin">
         {/* Critical Alert Banner */}
         {isCritical && (
           <div className="mx-3 mt-3 p-3 bg-red-950/60 border border-red-700/60 rounded-lg">
@@ -159,7 +207,7 @@ export default function HexInspector({ selected, onClose }: HexInspectorProps) {
                     : 'FLOOD RISK THRESHOLD EXCEEDED'}
                 </div>
                 <div className="text-[10px] text-red-400/70 mt-1">
-                  BPBD {selected.province} notified • Evacuation advisory active
+                  BPBD {selected.province} notified - Evacuation advisory active
                 </div>
               </div>
             </div>
@@ -210,7 +258,7 @@ export default function HexInspector({ selected, onClose }: HexInspectorProps) {
             icon={Mountain}
             label="Slope Angle"
             value={selected.slopeAngle}
-            unit="°"
+            unit="deg"
             color={selected.slopeAngle > 30 ? 'text-orange-400' : 'text-slate-200'}
           />
           <MetricCard
@@ -309,7 +357,7 @@ export default function HexInspector({ selected, onClose }: HexInspectorProps) {
             <div className="space-y-1.5">
               <div className="flex items-center gap-2 p-2 bg-yellow-950/30 border border-yellow-800/40 rounded-md">
                 <ChevronRight className="w-3 h-3 text-yellow-400 flex-shrink-0" />
-                <span className="text-[11px] text-yellow-300">Continue monitoring — elevated watch</span>
+                <span className="text-[11px] text-yellow-300">Continue monitoring - elevated watch</span>
               </div>
               <div className="flex items-center gap-2 p-2 bg-slate-800/40 border border-slate-700/40 rounded-md">
                 <ChevronRight className="w-3 h-3 text-slate-400 flex-shrink-0" />
@@ -330,6 +378,6 @@ export default function HexInspector({ selected, onClose }: HexInspectorProps) {
           </div>
         </div>
       </div>
-    </div>
+    </>
   );
 }

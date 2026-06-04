@@ -6,6 +6,7 @@ import { mockAlerts } from '@/lib/mockData';
 
 export default function AlertTicker() {
   const [currentTime, setCurrentTime] = useState('');
+  const [isMobile, setIsMobile] = useState(false);
   const tickerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -15,6 +16,13 @@ export default function AlertTicker() {
     update();
     const id = setInterval(update, 1000);
     return () => clearInterval(id);
+  }, []);
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 640);
+    check();
+    window.addEventListener('resize', check);
+    return () => window.removeEventListener('resize', check);
   }, []);
 
   const criticalAlerts = mockAlerts.filter((a) => a.severity === 'critical' || a.severity === 'high');
@@ -32,9 +40,9 @@ export default function AlertTicker() {
           <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
           <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500" />
         </span>
-        <Radio className="w-3 h-3 text-red-300" />
+        {!isMobile && <Radio className="w-3 h-3 text-red-300" />}
         <span className="text-red-200 text-xs font-bold tracking-widest uppercase whitespace-nowrap">
-          Live Alerts
+          {isMobile ? 'ALERTS' : 'Live Alerts'}
         </span>
       </div>
 
@@ -50,11 +58,13 @@ export default function AlertTicker() {
         </div>
       </div>
 
-      {/* Clock */}
-      <div className="flex items-center gap-1.5 px-4 h-full border-l border-slate-700/50 flex-shrink-0">
-        <span className="text-xs font-mono text-slate-400">UTC+7</span>
-        <span className="text-xs font-mono text-cyan-300 tabular-nums">{currentTime}</span>
-      </div>
+      {/* Clock - hidden on small screens */}
+      {!isMobile && (
+        <div className="flex items-center gap-1.5 px-4 h-full border-l border-slate-700/50 flex-shrink-0">
+          <span className="text-xs font-mono text-slate-400">UTC+7</span>
+          <span className="text-xs font-mono text-cyan-300 tabular-nums">{currentTime}</span>
+        </div>
+      )}
     </div>
   );
 }

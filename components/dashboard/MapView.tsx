@@ -210,16 +210,11 @@ export default function MapView({ onHexClick, selectedHexId }: MapViewProps) {
         style={{ width: '100%', height: '100%', position: 'absolute', inset: 0 }}
       />
 
-      {/* Coordinate display overlay */}
-      <div className="absolute bottom-8 left-3 z-[1000] bg-[#0a0f1e]/80 border border-slate-700/50 rounded px-2 py-1">
-        <span className="text-[10px] font-mono text-slate-400">Indonesia EWS Grid &bull; H3 Resolution 6</span>
-      </div>
-
-      {/* Scale indicator */}
-      <div className="absolute bottom-8 right-14 z-[1000] bg-[#0a0f1e]/80 border border-slate-700/50 rounded px-2 py-1">
-        <span className="text-[10px] font-mono text-slate-400">
-          {mockGeoJSON.features.length} Hexagons Active
-        </span>
+      {/* Bottom-left info overlay */}
+      <div className="absolute bottom-3 left-3 z-[1000] bg-[#0a0f1e]/80 border border-slate-700/50 rounded px-2 py-1 flex items-center gap-2">
+        <span className="text-[10px] font-mono text-slate-400">Indonesia EWS Grid &bull; H3 Res 6</span>
+        <span className="w-px h-2.5 bg-slate-600" />
+        <span className="text-[10px] font-mono text-cyan-400/80">{mockGeoJSON.features.length} Hexagons Active</span>
       </div>
     </div>
   );
