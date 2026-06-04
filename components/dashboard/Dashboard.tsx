@@ -165,7 +165,7 @@ export default function Dashboard() {
           <MapView onHexClick={handleHexClick} selectedHexId={selectedHex?.hexId ?? null} />
 
           {/* Critical zone pulse overlay label */}
-          <div className="absolute bottom-12 left-1/2 -translate-x-1/2 z-[1000]">
+          <div className="absolute bottom-16 left-1/2 -translate-x-1/2 z-[1000]">
             <div className="flex items-center gap-2 bg-red-950/70 border border-red-800/50 rounded-full px-3 py-1 backdrop-blur-sm">
               <span className="relative flex h-1.5 w-1.5">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />

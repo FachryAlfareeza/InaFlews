@@ -27,11 +27,14 @@ const TABS = [
 ];
 
 const SYSTEMS = [
-  { name: 'JMA Himawari-9', type: 'Meteorological Satellite', status: 'ONLINE', icon: Satellite },
-  { name: 'JAXA ALOS-3', type: 'Land Observation', status: 'ONLINE', icon: Satellite },
-  { name: 'Sentinel-1 SAR', type: 'Synthetic Aperture Radar', status: 'ACTIVE', icon: Radio },
-  { name: 'BMKG Rain Gauge Net.', type: 'Ground Stations', status: 'ONLINE', icon: Wifi },
-  { name: 'BNPB Seismic Array', type: 'Ground Motion Sensors', status: 'ONLINE', icon: Activity },
+  { name: 'JMA Himawari', type: 'Meteorological Satellite', status: 'ONLINE', icon: Satellite },
+  { name: 'JAXA ALOS', type: 'Land Observation', status: 'ONLINE', icon: Satellite },
+  { name: 'Sentinel-1 SAR', type: 'Synthetic Aperture Radar', status: 'ACTIVE', icon: Satellite },
+  { name: 'Sentinel-2 Optical', type: 'Optical Satellite', status: 'ACTIVE', icon: Satellite },
+  { name: 'NASA SMAP', type: 'Soil Moisture and Porosity', status: 'ACTIVE', icon: Satellite },
+  { name: 'Landsat 8', type: 'Soil Texture', status: 'ACTIVE', icon: Satellite }, 
+  { name: 'Landsat 9', type: 'Soil Texture', status: 'ACTIVE', icon: Satellite },
+  { name: 'BMKG Sensor Network', type: 'Ground Stations', status: 'ONLINE', icon: Wifi },
   { name: 'AI Prediction Engine', type: 'Dual-Stream Model v2.4', status: 'RUNNING', icon: Cpu },
 ];
 
