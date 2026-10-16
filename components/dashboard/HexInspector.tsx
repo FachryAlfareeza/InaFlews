@@ -1,6 +1,7 @@
 'use client';
 
 import { HexFeatureProperties, generateForecastData } from '@/lib/mockData';
+import { H3_RESOLUTION, cellAreaKm2 } from '@/lib/h3';
 import {
   LineChart,
   Line,
@@ -160,15 +161,17 @@ function InspectorContent({ selected, onClose }: { selected: HexFeaturePropertie
     <>
       {/* Header */}
       <div className="px-4 py-3 border-b border-slate-700/40 flex items-start justify-between flex-shrink-0">
-        <div>
+        <div className="min-w-0">
           <div className="flex items-center gap-1.5 mb-0.5">
-            <Hash className="w-3 h-3 text-slate-500" />
-            <span className="text-[10px] font-mono text-slate-500">{selected.hexId}</span>
+            <Hash className="w-3 h-3 text-cyan-500/80 flex-shrink-0" />
+            <span className="text-[10px] font-mono text-cyan-400/90 truncate" title={`H3 index: ${selected.h3Index}`}>
+              {selected.h3Index}
+            </span>
           </div>
           <h2 className="text-sm font-bold text-white leading-tight">{selected.regionName}</h2>
           <div className="flex items-center gap-1 mt-0.5">
-            <MapPin className="w-2.5 h-2.5 text-slate-500" />
-            <span className="text-[10px] text-slate-500">{selected.province}</span>
+            <MapPin className="w-2.5 h-2.5 text-slate-500 flex-shrink-0" />
+            <span className="text-[10px] text-slate-500">{selected.province} &bull; {selected.hexId}</span>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -233,6 +236,37 @@ function InspectorContent({ selected, onClose }: { selected: HexFeaturePropertie
               }`}
               style={{ width: `${selected.overallRiskScore * 100}%` }}
             />
+          </div>
+        </div>
+
+        {/* H3 Cell Details */}
+        <div className="px-3 pt-3">
+          <div className="text-[10px] text-slate-500 uppercase tracking-wider font-medium mb-1.5">
+            H3 Grid Cell
+          </div>
+          <div className="bg-slate-800/40 border border-slate-700/40 rounded-lg p-2.5 space-y-1.5">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] text-slate-500">Index</span>
+              <span className="text-[10px] font-mono text-cyan-300 truncate ml-2" title={selected.h3Index}>
+                {selected.h3Index}
+              </span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] text-slate-500">Resolution</span>
+              <span className="text-[10px] font-mono text-slate-200">{H3_RESOLUTION}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] text-slate-500">Cell Center</span>
+              <span className="text-[10px] font-mono text-slate-200">
+                {selected.lat.toFixed(4)}, {selected.lng.toFixed(4)}
+              </span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] text-slate-500">Cell Area</span>
+              <span className="text-[10px] font-mono text-slate-200">
+                {cellAreaKm2(selected.h3Index).toFixed(1)} km²
+              </span>
+            </div>
           </div>
         </div>
 

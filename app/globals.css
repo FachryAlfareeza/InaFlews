@@ -61,15 +61,13 @@
   font-family: inherit;
 }
 
-/* Hide default white background on Leaflet div icons */
-.hex-marker {
-  background: transparent !important;
-  border: none !important;
-  box-shadow: none !important;
+/* H3 cell polygons */
+.h3-cell {
+  transition: fill-opacity 0.3s ease, stroke-width 0.2s ease;
+  cursor: pointer;
 }
-.leaflet-marker-icon {
-  background: transparent !important;
-  border: none !important;
+.h3-cell-critical {
+  filter: drop-shadow(0 0 4px rgba(239, 68, 68, 0.5));
 }
 
 /* Leaflet tooltip overrides */

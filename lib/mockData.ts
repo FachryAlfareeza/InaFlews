@@ -1,8 +1,21 @@
+import {
+  H3_RESOLUTION,
+  pointToCell,
+  cellToCenter,
+  cellToPolygon,
+  type H3Index,
+} from './h3';
+
 export interface HexFeatureProperties {
+  /** Human-readable label for the cell, e.g. "SUM01". */
   hexId: string;
+  /** Canonical Uber H3 cell index at {@link H3_RESOLUTION}. */
+  h3Index: H3Index;
   regionName: string;
   province: string;
+  /** Latitude of the H3 cell center (derived from {@link h3Index}). */
   lat: number;
+  /** Longitude of the H3 cell center (derived from {@link h3Index}). */
   lng: number;
   soilSaturation: number;
   currentRainfall: number;
@@ -21,105 +34,100 @@ export interface AlertItem {
   region: string;
 }
 
-// Generate a proper hexagonal polygon in geographic coordinates
-// Uses cos(lat) correction so hexagons appear regular on a Mercator map
-function makeHex(lat: number, lng: number, size: number): number[][] {
-  const pts: number[][] = [];
-  const cosLat = Math.cos((lat * Math.PI) / 180);
-  for (let i = 0; i < 6; i++) {
-    const angle = (Math.PI / 3) * i - Math.PI / 6;
-    const dLat = size * Math.sin(angle);
-    const dLng = (size * Math.cos(angle)) / cosLat;
-    pts.push([lng + dLng, lat + dLat]);
-  }
-  pts.push(pts[0]); // close the ring
-  return pts;
-}
-
+/**
+ * Build a GeoJSON feature anchored to an H3 cell.
+ *
+ * The input lat/lng is only a seed: it is bucketed into the containing H3 cell
+ * at {@link H3_RESOLUTION}, and from that point on the H3 index is the source of
+ * truth. The feature's center and polygon geometry are both derived from the
+ * H3 cell boundary, so what renders on the map is a true H3 grid cell.
+ */
 function hex(
   id: string,
-  lat: number,
-  lng: number,
-  size: number,
-  props: Omit<HexFeatureProperties, 'hexId' | 'lat' | 'lng'>
+  seedLat: number,
+  seedLng: number,
+  props: Omit<HexFeatureProperties, 'hexId' | 'h3Index' | 'lat' | 'lng'>
 ) {
+  const h3Index = pointToCell(seedLat, seedLng, H3_RESOLUTION);
+  const [lat, lng] = cellToCenter(h3Index);
+  // GeoJSON order ([lng, lat]) with the ring closed.
+  const ring = cellToPolygon(h3Index, true) as number[][];
+
   return {
     type: 'Feature' as const,
-    properties: { hexId: id, lat, lng, ...props },
+    properties: { hexId: id, h3Index, lat, lng, ...props },
     geometry: {
       type: 'Polygon' as const,
-      coordinates: [makeHex(lat, lng, size)],
+      coordinates: [ring],
     },
   };
 }
 
-// Comprehensive Indonesian hazard hexagons covering all major regions
-// Size 0.8 degrees gives visible hexes at zoom 5, with overlap at zoom 7+
-const H = 0.8;
-
+// Comprehensive Indonesian hazard cells covering all major regions.
+// Each seed coordinate is snapped to its containing H3 resolution-6 cell.
 const indonesianHexes = [
   // ---- SUMATRA ----
-  hex('SUM01', 3.5, 98.7, H, {
+  hex('SUM01', 3.5, 98.7, {
     regionName: 'Medan Corridor',
     province: 'North Sumatra',
     soilSaturation: 55, currentRainfall: 11.5, slopeAngle: 7,
     overallRiskScore: 0.32, population: 489000, lastUpdated: '2026-05-28T08:00:00Z',
   }),
-  hex('SUM02', 2.0, 99.3, H, {
+  hex('SUM02', 2.0, 99.3, {
     regionName: 'Tapanuli Highlands',
     province: 'North Sumatra',
     soilSaturation: 68, currentRainfall: 19.2, slopeAngle: 18,
     overallRiskScore: 0.48, population: 143000, lastUpdated: '2026-05-28T08:00:00Z',
   }),
-  hex('SUM03', 0.5, 101.4, H, {
+  hex('SUM03', 0.5, 101.4, {
     regionName: 'Pekanbaru Basin',
     province: 'Riau',
     soilSaturation: 87, currentRainfall: 36.8, slopeAngle: 12,
     overallRiskScore: 0.72, population: 312000, lastUpdated: '2026-05-28T08:00:00Z',
   }),
-  hex('SUM04', -0.5, 100.4, H, {
+  hex('SUM04', -0.5, 100.4, {
     regionName: 'Padang Pariaman',
     province: 'West Sumatra',
     soilSaturation: 95, currentRainfall: 52.1, slopeAngle: 40,
     overallRiskScore: 0.93, population: 87000, lastUpdated: '2026-05-28T08:00:00Z',
   }),
-  hex('SUM05', -1.2, 100.6, H, {
+  hex('SUM05', -1.2, 100.6, {
     regionName: 'Solok Highlands',
     province: 'West Sumatra',
     soilSaturation: 91, currentRainfall: 46.3, slopeAngle: 38,
     overallRiskScore: 0.89, population: 54000, lastUpdated: '2026-05-28T08:00:00Z',
   }),
-  hex('SUM06', -2.0, 102.3, H, {
+  hex('SUM06', -2.0, 102.3, {
     regionName: 'Kerinci Valley',
     province: 'Jambi',
     soilSaturation: 83, currentRainfall: 33.7, slopeAngle: 29,
     overallRiskScore: 0.76, population: 61000, lastUpdated: '2026-05-28T08:00:00Z',
   }),
-  hex('SUM07', -1.5, 104.0, H, {
+  hex('SUM07', -1.5, 104.0, {
     regionName: 'Jambi Lowlands',
     province: 'Jambi',
     soilSaturation: 62, currentRainfall: 18.4, slopeAngle: 5,
     overallRiskScore: 0.35, population: 178000, lastUpdated: '2026-05-28T08:00:00Z',
   }),
-  hex('SUM08', -3.0, 104.5, H, {
+  hex('SUM08', -3.0, 104.5, {
     regionName: 'Palembang Plain',
     province: 'South Sumatra',
     soilSaturation: 48, currentRainfall: 9.2, slopeAngle: 3,
     overallRiskScore: 0.22, population: 520000, lastUpdated: '2026-05-28T08:00:00Z',
   }),
-  hex('SUM09', -4.0, 105.2, H, {
+  hex('SUM09', -4.0, 105.2, {
     regionName: 'Lampung Coast',
     province: 'Lampung',
     soilSaturation: 56, currentRainfall: 13.0, slopeAngle: 6,
     overallRiskScore: 0.29, population: 245000, lastUpdated: '2026-05-28T08:00:00Z',
   }),
-  hex('SUM10', -5.5, 105.3, H, {
+  hex('SUM10', -5.5, 105.3, {
     regionName: 'Bengkulu Uplands',
     province: 'Bengkulu',
     soilSaturation: 79, currentRainfall: 28.1, slopeAngle: 22,
     overallRiskScore: 0.64, population: 92000, lastUpdated: '2026-05-28T08:00:00Z',
   }),
-  hex('SUM11', -3.8, 102.8, H, {
+  hex('SUM11', -3.8, 102.8, {
     regionName: 'Rejang Lebong',
     province: 'Bengkulu',
     soilSaturation: 74, currentRainfall: 22.5, slopeAngle: 15,
@@ -127,103 +135,103 @@ const indonesianHexes = [
   }),
 
   // ---- JAVA ----
-  hex('JAV01', -6.2, 106.8, H, {
+  hex('JAV01', -6.2, 106.8, {
     regionName: 'Jakarta Metro',
     province: 'DKI Jakarta',
     soilSaturation: 92, currentRainfall: 41.3, slopeAngle: 2,
     overallRiskScore: 0.81, population: 3200000, lastUpdated: '2026-05-28T08:05:00Z',
   }),
-  hex('JAV02', -6.4, 107.0, H, {
+  hex('JAV02', -6.4, 107.0, {
     regionName: 'Bekasi Flood Plain',
     province: 'West Java',
     soilSaturation: 89, currentRainfall: 38.6, slopeAngle: 3,
     overallRiskScore: 0.79, population: 890000, lastUpdated: '2026-05-28T08:05:00Z',
   }),
-  hex('JAV03', -6.9, 107.6, H, {
+  hex('JAV03', -6.9, 107.6, {
     regionName: 'Bandung Uplands',
     province: 'West Java',
     soilSaturation: 94, currentRainfall: 48.2, slopeAngle: 32,
     overallRiskScore: 0.91, population: 124000, lastUpdated: '2026-05-28T08:05:00Z',
   }),
-  hex('JAV04', -7.1, 107.8, H, {
+  hex('JAV04', -7.1, 107.8, {
     regionName: 'Garut Highlands',
     province: 'West Java',
     soilSaturation: 88, currentRainfall: 39.5, slopeAngle: 28,
     overallRiskScore: 0.85, population: 89000, lastUpdated: '2026-05-28T08:05:00Z',
   }),
-  hex('JAV05', -6.75, 107.5, H, {
+  hex('JAV05', -6.75, 107.5, {
     regionName: 'Sumedang Basin',
     province: 'West Java',
     soilSaturation: 82, currentRainfall: 31.0, slopeAngle: 22,
     overallRiskScore: 0.78, population: 67000, lastUpdated: '2026-05-28T08:05:00Z',
   }),
-  hex('JAV06', -7.2, 107.9, H, {
+  hex('JAV06', -7.2, 107.9, {
     regionName: 'Cianjur South',
     province: 'West Java',
     soilSaturation: 90, currentRainfall: 44.7, slopeAngle: 35,
     overallRiskScore: 0.88, population: 78000, lastUpdated: '2026-05-28T08:05:00Z',
   }),
-  hex('JAV07', -7.35, 108.1, H, {
+  hex('JAV07', -7.35, 108.1, {
     regionName: 'Tasikmalaya Ridge',
     province: 'West Java',
     soilSaturation: 76, currentRainfall: 28.9, slopeAngle: 25,
     overallRiskScore: 0.65, population: 93000, lastUpdated: '2026-05-28T08:05:00Z',
   }),
-  hex('JAV08', -6.45, 107.1, H, {
+  hex('JAV08', -6.45, 107.1, {
     regionName: 'Purwakarta Valley',
     province: 'West Java',
     soilSaturation: 58, currentRainfall: 14.3, slopeAngle: 5,
     overallRiskScore: 0.38, population: 155000, lastUpdated: '2026-05-28T08:05:00Z',
   }),
-  hex('JAV09', -6.6, 107.3, H, {
+  hex('JAV09', -6.6, 107.3, {
     regionName: 'Subang Lowlands',
     province: 'West Java',
     soilSaturation: 71, currentRainfall: 22.1, slopeAngle: 8,
     overallRiskScore: 0.55, population: 201000, lastUpdated: '2026-05-28T08:05:00Z',
   }),
-  hex('JAV10', -7.3, 109.7, H, {
+  hex('JAV10', -7.3, 109.7, {
     regionName: 'Banyumas Slope',
     province: 'Central Java',
     soilSaturation: 86, currentRainfall: 37.4, slopeAngle: 27,
     overallRiskScore: 0.82, population: 71000, lastUpdated: '2026-05-28T08:03:00Z',
   }),
-  hex('JAV11', -7.1, 110.4, H, {
+  hex('JAV11', -7.1, 110.4, {
     regionName: 'Magelang Foothills',
     province: 'Central Java',
     soilSaturation: 79, currentRainfall: 29.8, slopeAngle: 21,
     overallRiskScore: 0.68, population: 98000, lastUpdated: '2026-05-28T08:03:00Z',
   }),
-  hex('JAV12', -7.55, 110.85, H, {
+  hex('JAV12', -7.55, 110.85, {
     regionName: 'Wonogiri Reservoir',
     province: 'Central Java',
     soilSaturation: 62, currentRainfall: 16.2, slopeAngle: 10,
     overallRiskScore: 0.44, population: 187000, lastUpdated: '2026-05-28T08:03:00Z',
   }),
-  hex('JAV13', -7.0, 111.0, H, {
+  hex('JAV13', -7.0, 111.0, {
     regionName: 'Semarang Coastal',
     province: 'Central Java',
     soilSaturation: 88, currentRainfall: 35.2, slopeAngle: 4,
     overallRiskScore: 0.77, population: 510000, lastUpdated: '2026-05-28T08:03:00Z',
   }),
-  hex('JAV14', -7.8, 110.3, H, {
+  hex('JAV14', -7.8, 110.3, {
     regionName: 'Wonosobo Plateau',
     province: 'Central Java',
     soilSaturation: 84, currentRainfall: 34.1, slopeAngle: 26,
     overallRiskScore: 0.80, population: 82000, lastUpdated: '2026-05-28T08:03:00Z',
   }),
-  hex('JAV15', -7.6, 112.0, H, {
+  hex('JAV15', -7.6, 112.0, {
     regionName: 'Surabaya Delta',
     province: 'East Java',
     soilSaturation: 83, currentRainfall: 32.8, slopeAngle: 6,
     overallRiskScore: 0.73, population: 680000, lastUpdated: '2026-05-28T08:02:00Z',
   }),
-  hex('JAV16', -8.0, 112.5, H, {
+  hex('JAV16', -8.0, 112.5, {
     regionName: 'Malang Uplands',
     province: 'East Java',
     soilSaturation: 77, currentRainfall: 26.4, slopeAngle: 19,
     overallRiskScore: 0.62, population: 340000, lastUpdated: '2026-05-28T08:02:00Z',
   }),
-  hex('JAV17', -8.3, 114.0, H, {
+  hex('JAV17', -8.3, 114.0, {
     regionName: 'Banyuwangi Coast',
     province: 'East Java',
     soilSaturation: 45, currentRainfall: 8.1, slopeAngle: 9,
@@ -231,25 +239,25 @@ const indonesianHexes = [
   }),
 
   // ---- BALI & NUSA TENGGARA ----
-  hex('BAL01', -8.35, 115.1, H, {
+  hex('BAL01', -8.35, 115.1, {
     regionName: 'Denpasar Basin',
     province: 'Bali',
     soilSaturation: 60, currentRainfall: 15.0, slopeAngle: 8,
     overallRiskScore: 0.31, population: 290000, lastUpdated: '2026-05-28T07:55:00Z',
   }),
-  hex('NTT01', -8.6, 116.1, H, {
+  hex('NTT01', -8.6, 116.1, {
     regionName: 'Lombok Highlands',
     province: 'West Nusa Tenggara',
     soilSaturation: 53, currentRainfall: 10.2, slopeAngle: 14,
     overallRiskScore: 0.28, population: 135000, lastUpdated: '2026-05-28T07:55:00Z',
   }),
-  hex('NTT02', -9.5, 119.5, H, {
+  hex('NTT02', -9.5, 119.5, {
     regionName: 'Flores Central',
     province: 'East Nusa Tenggara',
     soilSaturation: 41, currentRainfall: 5.4, slopeAngle: 20,
     overallRiskScore: 0.19, population: 87000, lastUpdated: '2026-05-28T07:55:00Z',
   }),
-  hex('NTT03', -10.2, 123.6, H, {
+  hex('NTT03', -10.2, 123.6, {
     regionName: 'Kupang Coast',
     province: 'East Nusa Tenggara',
     soilSaturation: 32, currentRainfall: 2.8, slopeAngle: 11,
@@ -257,61 +265,61 @@ const indonesianHexes = [
   }),
 
   // ---- KALIMANTAN (Borneo) ----
-  hex('KAL01', 1.5, 109.0, H, {
+  hex('KAL01', 1.5, 109.0, {
     regionName: 'Pontianak Lowlands',
     province: 'West Kalimantan',
     soilSaturation: 78, currentRainfall: 27.5, slopeAngle: 3,
     overallRiskScore: 0.58, population: 230000, lastUpdated: '2026-05-28T07:50:00Z',
   }),
-  hex('KAL02', 0.0, 110.5, H, {
+  hex('KAL02', 0.0, 110.5, {
     regionName: 'Ketapang Interior',
     province: 'West Kalimantan',
     soilSaturation: 85, currentRainfall: 35.1, slopeAngle: 8,
     overallRiskScore: 0.69, population: 67000, lastUpdated: '2026-05-28T07:50:00Z',
   }),
-  hex('KAL03', -1.0, 111.0, H, {
+  hex('KAL03', -1.0, 111.0, {
     regionName: 'Sukamara Basin',
     province: 'Central Kalimantan',
     soilSaturation: 81, currentRainfall: 30.8, slopeAngle: 4,
     overallRiskScore: 0.63, population: 45000, lastUpdated: '2026-05-28T07:50:00Z',
   }),
-  hex('KAL04', -2.5, 112.5, H, {
+  hex('KAL04', -2.5, 112.5, {
     regionName: 'Palangka Raya',
     province: 'Central Kalimantan',
     soilSaturation: 76, currentRainfall: 24.3, slopeAngle: 2,
     overallRiskScore: 0.51, population: 185000, lastUpdated: '2026-05-28T07:50:00Z',
   }),
-  hex('KAL05', -3.5, 114.5, H, {
+  hex('KAL05', -3.5, 114.5, {
     regionName: 'Banjarmasin Delta',
     province: 'South Kalimantan',
     soilSaturation: 92, currentRainfall: 42.6, slopeAngle: 5,
     overallRiskScore: 0.83, population: 420000, lastUpdated: '2026-05-28T07:50:00Z',
   }),
-  hex('KAL06', -4.0, 115.5, H, {
+  hex('KAL06', -4.0, 115.5, {
     regionName: 'Kotabaru Coast',
     province: 'South Kalimantan',
     soilSaturation: 65, currentRainfall: 17.3, slopeAngle: 10,
     overallRiskScore: 0.42, population: 98000, lastUpdated: '2026-05-28T07:50:00Z',
   }),
-  hex('KAL07', 2.5, 116.0, H, {
+  hex('KAL07', 2.5, 116.0, {
     regionName: 'Tarakan Flood Zone',
     province: 'North Kalimantan',
     soilSaturation: 88, currentRainfall: 38.9, slopeAngle: 6,
     overallRiskScore: 0.75, population: 112000, lastUpdated: '2026-05-28T07:50:00Z',
   }),
-  hex('KAL08', 1.0, 116.5, H, {
+  hex('KAL08', 1.0, 116.5, {
     regionName: 'Berau Watershed',
     province: 'East Kalimantan',
     soilSaturation: 72, currentRainfall: 21.0, slopeAngle: 9,
     overallRiskScore: 0.47, population: 78000, lastUpdated: '2026-05-28T07:50:00Z',
   }),
-  hex('KAL09', -1.2, 116.5, H, {
+  hex('KAL09', -1.2, 116.5, {
     regionName: 'Balikpapan Lowlands',
     province: 'East Kalimantan',
     soilSaturation: 69, currentRainfall: 19.5, slopeAngle: 7,
     overallRiskScore: 0.43, population: 310000, lastUpdated: '2026-05-28T07:50:00Z',
   }),
-  hex('KAL10', -3.0, 117.0, H, {
+  hex('KAL10', -3.0, 117.0, {
     regionName: 'Kotabumi Ridge',
     province: 'East Kalimantan',
     soilSaturation: 57, currentRainfall: 12.8, slopeAngle: 14,
@@ -319,49 +327,49 @@ const indonesianHexes = [
   }),
 
   // ---- SULAWESI ----
-  hex('SUL01', 1.5, 124.5, H, {
+  hex('SUL01', 1.5, 124.5, {
     regionName: 'Gorontalo Basin',
     province: 'Gorontalo',
     soilSaturation: 71, currentRainfall: 22.8, slopeAngle: 13,
     overallRiskScore: 0.53, population: 89000, lastUpdated: '2026-05-28T07:45:00Z',
   }),
-  hex('SUL02', 0.5, 123.5, H, {
+  hex('SUL02', 0.5, 123.5, {
     regionName: 'Buol Coast',
     province: 'Central Sulawesi',
     soilSaturation: 64, currentRainfall: 16.5, slopeAngle: 11,
     overallRiskScore: 0.41, population: 56000, lastUpdated: '2026-05-28T07:45:00Z',
   }),
-  hex('SUL03', -1.4, 120.1, H, {
+  hex('SUL03', -1.4, 120.1, {
     regionName: 'Poso Lake Area',
     province: 'Central Sulawesi',
     soilSaturation: 80, currentRainfall: 30.5, slopeAngle: 20,
     overallRiskScore: 0.71, population: 43000, lastUpdated: '2026-05-28T07:45:00Z',
   }),
-  hex('SUL04', -0.9, 121.5, H, {
+  hex('SUL04', -0.9, 121.5, {
     regionName: 'Palu Valley',
     province: 'Central Sulawesi',
     soilSaturation: 93, currentRainfall: 49.7, slopeAngle: 35,
     overallRiskScore: 0.92, population: 95000, lastUpdated: '2026-05-28T07:45:00Z',
   }),
-  hex('SUL05', -5.1, 119.45, H, {
+  hex('SUL05', -5.1, 119.45, {
     regionName: 'Gowa Uplands',
     province: 'South Sulawesi',
     soilSaturation: 73, currentRainfall: 24.1, slopeAngle: 16,
     overallRiskScore: 0.58, population: 129000, lastUpdated: '2026-05-28T07:45:00Z',
   }),
-  hex('SUL06', -5.5, 120.3, H, {
+  hex('SUL06', -5.5, 120.3, {
     regionName: 'Makassar Coast',
     province: 'South Sulawesi',
     soilSaturation: 67, currentRainfall: 18.6, slopeAngle: 5,
     overallRiskScore: 0.39, population: 520000, lastUpdated: '2026-05-28T07:45:00Z',
   }),
-  hex('SUL07', -3.8, 120.0, H, {
+  hex('SUL07', -3.8, 120.0, {
     regionName: 'Wajo Lowlands',
     province: 'South Sulawesi',
     soilSaturation: 75, currentRainfall: 23.0, slopeAngle: 9,
     overallRiskScore: 0.55, population: 105000, lastUpdated: '2026-05-28T07:45:00Z',
   }),
-  hex('SUL08', -4.2, 122.0, H, {
+  hex('SUL08', -4.2, 122.0, {
     regionName: 'Kolaka Slopes',
     province: 'Southeast Sulawesi',
     soilSaturation: 59, currentRainfall: 14.2, slopeAngle: 17,
@@ -369,19 +377,19 @@ const indonesianHexes = [
   }),
 
   // ---- MALUKU ----
-  hex('MAL01', -3.2, 128.2, H, {
+  hex('MAL01', -3.2, 128.2, {
     regionName: 'Ambon Island',
     province: 'Maluku',
     soilSaturation: 70, currentRainfall: 20.5, slopeAngle: 22,
     overallRiskScore: 0.56, population: 98000, lastUpdated: '2026-05-28T07:40:00Z',
   }),
-  hex('MAL02', -7.5, 131.3, H, {
+  hex('MAL02', -7.5, 131.3, {
     regionName: 'Tanimbar Coast',
     province: 'Maluku',
     soilSaturation: 42, currentRainfall: 6.1, slopeAngle: 8,
     overallRiskScore: 0.18, population: 31000, lastUpdated: '2026-05-28T07:40:00Z',
   }),
-  hex('MAL03', -3.5, 130.5, H, {
+  hex('MAL03', -3.5, 130.5, {
     regionName: 'Seram Interior',
     province: 'Maluku',
     soilSaturation: 66, currentRainfall: 17.8, slopeAngle: 25,
@@ -389,31 +397,31 @@ const indonesianHexes = [
   }),
 
   // ---- PAPUA ----
-  hex('PAP01', -2.5, 133.5, H, {
+  hex('PAP01', -2.5, 133.5, {
     regionName: 'Nabire Lowlands',
     province: 'Central Papua',
     soilSaturation: 82, currentRainfall: 33.5, slopeAngle: 10,
     overallRiskScore: 0.67, population: 58000, lastUpdated: '2026-05-28T07:35:00Z',
   }),
-  hex('PAP02', -4.0, 136.0, H, {
+  hex('PAP02', -4.0, 136.0, {
     regionName: 'Wamena Highlands',
     province: 'Highland Papua',
     soilSaturation: 91, currentRainfall: 45.2, slopeAngle: 42,
     overallRiskScore: 0.94, population: 34000, lastUpdated: '2026-05-28T07:35:00Z',
   }),
-  hex('PAP03', -3.5, 140.5, H, {
+  hex('PAP03', -3.5, 140.5, {
     regionName: 'Jayapura Coast',
     province: 'Papua',
     soilSaturation: 74, currentRainfall: 25.1, slopeAngle: 18,
     overallRiskScore: 0.52, population: 145000, lastUpdated: '2026-05-28T07:35:00Z',
   }),
-  hex('PAP04', -6.5, 140.0, H, {
+  hex('PAP04', -6.5, 140.0, {
     regionName: 'Merauke Floodplain',
     province: 'South Papua',
     soilSaturation: 50, currentRainfall: 10.5, slopeAngle: 2,
     overallRiskScore: 0.25, population: 42000, lastUpdated: '2026-05-28T07:35:00Z',
   }),
-  hex('PAP05', -2.0, 138.0, H, {
+  hex('PAP05', -2.0, 138.0, {
     regionName: 'Biak Island',
     province: 'Papua',
     soilSaturation: 61, currentRainfall: 15.8, slopeAngle: 12,
@@ -421,19 +429,19 @@ const indonesianHexes = [
   }),
 
   // ---- ACEH ----
-  hex('ACE01', 4.5, 97.0, H, {
+  hex('ACE01', 4.5, 97.0, {
     regionName: 'Banda Aceh Coast',
     province: 'Aceh',
     soilSaturation: 63, currentRainfall: 16.5, slopeAngle: 9,
     overallRiskScore: 0.40, population: 265000, lastUpdated: '2026-05-28T08:10:00Z',
   }),
-  hex('ACE02', 3.5, 97.8, H, {
+  hex('ACE02', 3.5, 97.8, {
     regionName: 'Pidie Highlands',
     province: 'Aceh',
     soilSaturation: 78, currentRainfall: 27.3, slopeAngle: 24,
     overallRiskScore: 0.66, population: 95000, lastUpdated: '2026-05-28T08:10:00Z',
   }),
-  hex('ACE03', 2.5, 96.5, H, {
+  hex('ACE03', 2.5, 96.5, {
     regionName: 'Singkil Swamp',
     province: 'Aceh',
     soilSaturation: 95, currentRainfall: 50.3, slopeAngle: 1,
@@ -441,13 +449,13 @@ const indonesianHexes = [
   }),
 
   // ---- BANTEN & WEST JAVA EXTENSION ----
-  hex('BNT01', -6.0, 106.0, H, {
+  hex('BNT01', -6.0, 106.0, {
     regionName: 'Serang Lowlands',
     province: 'Banten',
     soilSaturation: 72, currentRainfall: 20.5, slopeAngle: 4,
     overallRiskScore: 0.53, population: 320000, lastUpdated: '2026-05-28T08:05:00Z',
   }),
-  hex('BNT02', -6.8, 105.8, H, {
+  hex('BNT02', -6.8, 105.8, {
     regionName: 'Lebak Uplands',
     province: 'Banten',
     soilSaturation: 85, currentRainfall: 34.2, slopeAngle: 30,
@@ -455,7 +463,7 @@ const indonesianHexes = [
   }),
 
   // ---- DI YOGYAKARTA ----
-  hex('YOG01', -7.8, 110.4, H, {
+  hex('YOG01', -7.8, 110.4, {
     regionName: 'Merapi Slopes',
     province: 'DI Yogyakarta',
     soilSaturation: 90, currentRainfall: 42.5, slopeAngle: 35,
@@ -463,7 +471,7 @@ const indonesianHexes = [
   }),
 
   // ---- RIAU ISLANDS ----
-  hex('RIU01', 1.0, 104.0, H, {
+  hex('RIU01', 1.0, 104.0, {
     regionName: 'Batam Island',
     province: 'Riau Islands',
     soilSaturation: 42, currentRainfall: 7.8, slopeAngle: 4,
@@ -471,7 +479,7 @@ const indonesianHexes = [
   }),
 
   // ---- BANGKA BELITUNG ----
-  hex('BBT01', -2.7, 107.0, H, {
+  hex('BBT01', -2.7, 107.0, {
     regionName: 'Pangkal Pinang',
     province: 'Bangka Belitung Islands',
     soilSaturation: 48, currentRainfall: 9.5, slopeAngle: 5,
@@ -479,7 +487,7 @@ const indonesianHexes = [
   }),
 
   // ---- WEST KALIMANTAN BORDER ----
-  hex('KAL11', 0.5, 108.0, H, {
+  hex('KAL11', 0.5, 108.0, {
     regionName: 'Sambas Border',
     province: 'West Kalimantan',
     soilSaturation: 73, currentRainfall: 21.5, slopeAngle: 10,
@@ -487,13 +495,13 @@ const indonesianHexes = [
   }),
 
   // ---- NORTH SULAWESI ----
-  hex('SUL09', 1.5, 125.0, H, {
+  hex('SUL09', 1.5, 125.0, {
     regionName: 'Manado Volcanic Zone',
     province: 'North Sulawesi',
     soilSaturation: 87, currentRainfall: 38.2, slopeAngle: 33,
     overallRiskScore: 0.86, population: 175000, lastUpdated: '2026-05-28T07:45:00Z',
   }),
-  hex('SUL10', 0.3, 127.5, H, {
+  hex('SUL10', 0.3, 127.5, {
     regionName: 'Talaud Islands',
     province: 'North Sulawesi',
     soilSaturation: 38, currentRainfall: 5.8, slopeAngle: 15,
